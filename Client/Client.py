@@ -23,10 +23,9 @@ import sys
 from packet import *
 from udt import *
 
-# Gets IP and Port # input from user
+# Get IP and Port # from user input
 # ip = raw_input('Provide server IP: ')
 numPort = int(input('Provide Port #: '))
-
 # Creates a new TCP socket
 cliSock = socket(AF_INET, SOCK_STREAM)
 try:
@@ -37,6 +36,7 @@ except:
     # Connection to the server was not successful
     print('Connection failed. Error: ' + str(sys.exc_info()))
     sys.exit(2)
+
 
 RFTcommand = ''
 filename = ''

@@ -23,46 +23,37 @@ import sys
 from packet import *
 from udt import *
 
-# Create new socket
+# Create new socket and listen to port
 serSock = socket(AF_INET, SOCK_STREAM)
 numPort = int(input('Listen at Port #: '))
-
-flag = True
-while flag:
-    method = input('Select GBN or SR: ')
-    if method == 'GBN' or method == 'SR':
-        flag = False
-
 try:
-    # Bind to the given port
-    serSock.bind(('127.0.0.1', numPort))
+    serSock.bind(('127.0.0.1', numPort))                 # Bind to port
 except:
-    # Bind failed, causing an error
-    print('Bind failed. Error: ' + str(sys.exc_info()))
+    print('Bind failed. Error: ' + str(sys.exc_info()))  # Bind failed
     sys.exit(2)
-# Server ready to listen for connection
-serSock.listen(100)
+serSock.listen(100)                                      # Server ready to listen for connection
 
-def gbn(conn, data, addr, file):
-    base = 0
-    next_seq = 0
 
-    # Have the user choose it perhaps
-    window_size = 4
+# Function to call for a Go-Back-N pipeline protocol.
+# GBN resends entire window size when client/server sequences are inconsistent.
+def gbn(conn, addr, data, file):
+    base = 0         # The last acknowledged sequence number
+    seq_num = 0     # Current sequence number
+    window_size = 4  # *Have the user choose it perhaps
 
     while True:
-        print(next_seq)
-        # Make packet and send it if condition holds
-        packet = make(next_seq, data)
-        if next_seq < base + window_size:
+        print(seq_num)
+        # Send packet
+        packet = make(seq_num, data)
+        if seq_num < base + window_size:
             send(packet, conn, addr)
-            next_seq+=1
-    # ACK packet received
+            seq_num += 1
+        # Receive acknowledgement
         ack_pkt, _ = recv(conn)
-        seq_num, ack_data = extract(ack_pkt)
+        ack_seq_num, ack_data = extract(ack_pkt)
         if ack_data == b'ACK':
-            base = seq_num+1
-            if base == next_seq:
+            base = ack_seq_num+1
+            if base == seq_num:
                 print
                 # stop time
             else:
@@ -80,6 +71,9 @@ def gbn(conn, data, addr, file):
     conn.shutdown(2)
     # conn.close()
 
+
+# Function to call for a Selective Repeat pipeline protocol.
+# GBN resends entire window size when client/server sequences are inconsistent.
 def sr(conn, data, addr, file):
     base = 0
     next_seq = 0
@@ -93,32 +87,36 @@ def sr(conn, data, addr, file):
                 next_seq+=1
 
 
+# Select GBN or SR protocol
+flag = True
+while flag:
+    method = input('Select GBN or SR: ').upper()
+    if method == 'GBN' or method == 'SR':
+        print("Using ", method, "Protocol")
+        flag = False
+# Listen for connections and send file
 while True:
-    print('\nListening for conenction at ' + str(numPort))
     # Accept client connection
+    print('\nListening for conenction at ' + str(numPort))
     conn, addr = serSock.accept()
     print('Received a connection from:', addr)
 
-    # Boolean flag to determine if the file requested exists on the Server side
-    fileExists = False
-    # File name received from the client
-    data = conn.recv(1024).decode()
-    print('Asking for file ' + data)
-
-    try:
-        # Open file if exists, and send it to the client.
+    # Determine if the file requested exists on the Server side
+    fileExists = False                  # True if file exists, false otherwise
+    data = conn.recv(1024).decode()     # File name received from the client
+    print('Checking for file: ' + data)
+    try:                                # Open file if it exists, send it to the client.
         file = open(data, 'rb')
         data = file.read(1020)
         
         fileExists = True
         print('Sending the file ...')
-    except IOError:
-        # If file not exists, send an error and exit.
+    except IOError:                     # If file does not exist, send error and exit.
         if not fileExists:
             print('Error: ' + str(sys.exc_info()))
 
     if method == 'GBN':
-        gbn(conn, data, addr, file)
+        gbn(conn, addr, data, file)
     elif method == 'SR':
         sr(conn)
 
