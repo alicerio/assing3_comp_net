@@ -1,8 +1,8 @@
 """
 File Transfer Assignment - Assignment 3
 CS 5313 - Computer Networks
-Last Modified By: Alan Licerio
-Last Modified on: March 19, 2022
+Last Modified By: Joshua Ramos
+Last Modified on: March 20, 2022
 
 Program will run as following on the terminal:
 python3 Server.py
@@ -11,10 +11,9 @@ User will have to enter port #
 
 """
 *****
-ONLY GBN WORKING ASSUMING NO PACKET IS LOST.
+GBN SENDS SINGLE MESSAGES, DOES NOT HANDLE LIST PACKETS
 MODIFIED UDT.PY TO REFLECT THAT
-IT IS PEDNING TO INCORPORATE THE TIMER AND LOST PACKET
-PROB
+IT IS PEDNING TO INCORPORATE SLIDING WINDOWS, TIMER, AND LOST PACKET
 *****
 """
 
