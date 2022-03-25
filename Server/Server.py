@@ -1,20 +1,17 @@
 """
-File Transfer Assignment - Assignment 3
+File Transfer Assignment - Assignment 2b
 CS 5313 - Computer Networks
-Last Modified By: Joshua Ramos
+Last Modified By: Alan Licerio
 Last Modified on: March 20, 2022
 
 Program will run as following on the terminal:
 python3 Server.py
-User will have to enter port #
+User will have to enter port # and selected protocol (GBN or SR)
 """
 
 """
-*****
-GBN SENDS SINGLE MESSAGES, DOES NOT HANDLE LIST PACKETS
-MODIFIED UDT.PY TO REFLECT THAT
-IT IS PEDNING TO INCORPORATE SLIDING WINDOWS, TIMER, AND LOST PACKET
-*****
+It is needed to terminate the server program at the last packet sent. 
+Program is trapped in a deadlock
 """
 
 import sys
@@ -23,10 +20,11 @@ import threading
 import packet
 import udt
 import timer
-time = timer.Timer(1)
+time = timer.Timer(0.5)
 base = 0
 
-def gbn_receiver(conn):
+# In charge of managing incoming ACKs from client
+def receiver(conn):
     global time
     global base
     while True:
@@ -45,7 +43,7 @@ def gbn(conn, addr):
     global time
     global base      # The last acknowledged sequence number
     seq_num = 0      # Current sequence number
-    window_size = 4  # *Have the user choose it perhaps
+    window_size = 4  # *Have the user choose it
 
     filename_pckt, c = udt.recv(conn)
     ack_seq_num, filename = packet.extract(filename_pckt)
@@ -66,7 +64,7 @@ def gbn(conn, addr):
         numberOfPackets = len(packetsToSend)  # number of packets that need to be sent
         print("We have to send " + str(numberOfPackets) + " packets")
         next_to_send = 0
-        recv_thread = threading.Thread(target=gbn_receiver, args=(conn,))
+        recv_thread = threading.Thread(target=receiver, args=(conn,))
         recv_thread.start()
         while base < numberOfPackets:
             # Send all the packets in the window
@@ -96,50 +94,59 @@ def gbn(conn, addr):
         print('Error: ' + str(sys.exc_info()))
 
 
-    while True:
-        print(seq_num)
-        # Send packet
-        pckt = packet.make(seq_num, data)
-        if seq_num < base + window_size:
-            udt.send(pckt, conn, addr)
-            print("Sending #", seq_num)
-            seq_num += 1
-        # Receive acknowledgement
-        ack_pkt, _ = udt.recv(conn)
-        ack_seq_num, ack_data = packet.extract(ack_pkt)
-        print("Received Ack #", ack_seq_num)
-        if ack_data == b'ACK':
-            base = ack_seq_num+1
-            if base == seq_num:
-                print
-                # stop time
-            else:
-                print
-                # end time
-        # if time out:
-            # send ALL packets
-        data = file.read(1020)
-        if not data:
-            break
-    print('Transfer Complete!')
-    print('Connection closed, See you later!')
-    conn.shutdown(2)
-
-
 # Function to call for a Selective Repeat pipeline protocol.
-# GBN resends entire window size when client/server sequences are inconsistent.
-def sr(conn, data, addr, file):
-    base = 0
-    next_seq = 0
-    window_size = 4
+# SR resends just the packet needed
+def sr(conn, addr):
+    global time
+    global base
+    window_size = 24
 
-    while True:
-        for _ in range(window_size):
-            pckt = packet.make(next_seq, data)
-            if next_seq < base + window_size:
-                udt.send(pckt, conn, addr)
-                next_seq+=1
+    filename_pckt, _ = udt.recv(conn)
+    _, filename = packet.extract(filename_pckt)
+    filename = filename.decode()
+    print(filename)
 
+    try:
+        file = open(filename, 'rb')
+        packetsToSend = []  # list of  packets to be sent
+        recv_seq_num = 0  # received sequence number
+        while True:
+            data = file.read(1020)
+            if not data:
+                break
+            packetsToSend.append(packet.make(recv_seq_num, data))
+            recv_seq_num = recv_seq_num + 1
+        
+        numberOfPackets = len(packetsToSend)  # number of packets that need to be sent
+        print("We have to send " + str(numberOfPackets) + " packets")
+        next_to_send = 0
+        recv_thread = threading.Thread(target=receiver, args=(conn,))
+        recv_thread.start()
+
+        # Send one packet at a time if ACK not received before timeout
+        # It is just sending one packet ... 
+        while base < numberOfPackets:
+            print('Sending packet', next_to_send)
+            udt.send(packetsToSend[next_to_send], conn, addr)
+            next_to_send+=1
+
+            # Timer for each packet sent
+            if not time.running():
+                print('Start Timer')
+                time.start()
+            
+            while time.running() and not time.timeout():
+                time.running()
+            if time.timeout():
+                time.stop()
+                next_to_send = base
+
+        udt.send(packet.make_empty(), conn, addr)
+        print("done sending file, have a good day :)")
+        file.close()
+
+    except IOError:
+        print('Error: ' + str(sys.exc_info()))
 
 # Create new socket and listen to port
 serSock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -173,5 +180,5 @@ while True:
         thread.start()
     elif method == 'SR':
         print('Sending the file using Selective Repeat')
-        thread = threading.Thread(target=sr, args=(conn))
+        thread = threading.Thread(target=sr, args=(conn, addr))
         thread.start()
