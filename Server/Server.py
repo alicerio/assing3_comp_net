@@ -22,12 +22,13 @@ import udt
 import timer
 time = timer.Timer(0.5)
 base = 0
+connected = False
 
 # In charge of managing incoming ACKs from client
 def receiver(conn):
     global time
     global base
-    while True:
+    while connected:
         ack_packet, _ = udt.recv(conn)
         ack, _ = packet.extract(ack_packet)
         print('Received ACK #', ack)
@@ -42,7 +43,7 @@ def receiver(conn):
 def gbn(conn, addr):
     global time
     global base      # The last acknowledged sequence number
-    seq_num = 0      # Current sequence number
+    global connected
     window_size = 4  # *Have the user choose it
 
     filename_pckt, c = udt.recv(conn)
@@ -68,7 +69,7 @@ def gbn(conn, addr):
         recv_thread.start()
         while base < numberOfPackets:
             # Send all the packets in the window
-            while next_to_send < base + window_size:
+            while next_to_send < numberOfPackets:
                 print('Sending packet', next_to_send)
                 udt.send(packetsToSend[next_to_send], conn, addr)
                 next_to_send = next_to_send + 1
@@ -89,9 +90,10 @@ def gbn(conn, addr):
         print("done sending file, have a good day :)")
         file.close()
 
-
     except IOError:  # If file does not exist, send error and exit.
         print('Error: ' + str(sys.exc_info()))
+    connected = False
+    conn.close()
 
 
 # Function to call for a Selective Repeat pipeline protocol.
@@ -171,9 +173,10 @@ while flag:
 
 # Listen for connections and send file
 while True:
+    print("Listening for connections.")
     conn, addr = serSock.accept()       # Accept client connection
     print('Received a connection from:', addr)
-
+    connected = True
     if method == 'GBN':
         print('Sending the file using Go-Back-N')
         thread = threading.Thread(target=gbn, args=(conn, addr))

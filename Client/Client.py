@@ -42,7 +42,7 @@ filename = ''
 next_seq = 0
 buffer = []
 while True:
-    # User input to retreive files. 
+    # User input to retreive files.
     RFTcommand = input('RFTCli> ')
     # Split user input to determine which command was used
     split = RFTcommand.split()
@@ -60,32 +60,30 @@ while True:
             while True:
                 # Get packets from the server and write it to the file
                 pckt, s = udt.recv(cliSock)
-                seq_num, data = packet.extract(pckt)
-
-                # Break loop if no more data
-                if not data:
-                    print("Received last packet")
+                if pckt == b'':  # Break loop if no more data
+                    print("Done Receiving")
                     break
-                else:
-                    print("Received packet #", seq_num)
-                    if seq_num == expected_seq_num:
-                        if method == 'SR':
-                            # Insert packet to buffer if using SR protocol
-                            buffer.insert(seq_num, data)
-                        else :
-                            file.write(data)
+                seq_num, data = packet.extract(pckt)
+                print("Received packet #", seq_num)
+                if seq_num == expected_seq_num:
+                    if method == 'SR':
+                        # Insert packet to buffer if using SR protocol
+                        buffer.insert(seq_num, data)
+                    else :
+                        file.write(data)
 
-                        ack_pckt = packet.make(expected_seq_num, b'')  # Create ACK message
-                        udt.send(ack_pckt, cliSock, addr)
-                        expected_seq_num += 1
-                    else:
-                        print('Re-Sending ACK', expected_seq_num - 1) 
-                        ack_pckt = packet.make(expected_seq_num - 1, b'')
-                        udt.send(ack_pckt, cliSock, addr)
+                    ack_pckt = packet.make(expected_seq_num, b'')  # Create ACK message
+                    udt.send(ack_pckt, cliSock, addr)
+                    expected_seq_num += 1
+                else:
+                    print('Re-Sending ACK', expected_seq_num - 1)
+                    ack_pckt = packet.make(expected_seq_num - 1, b'')
+                    udt.send(ack_pckt, cliSock, addr)
             if method == 'SR':
                 for data in buffer:
                     file.write(data)
         file.close()
+        cliSock.close()
         print('Received ' + filename)
     else:
         # Close socket connection
