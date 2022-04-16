@@ -1,3 +1,10 @@
+"""
+Assignent 3: Packet Filtering in Software Defined Networks
+Computer Networks
+Alan Licerio and Joshua Ramos
+Last Modified on: 04-16-22
+"""
+
 from pox.core import core
 import pox.openflow.libopenflow_01 as of
 
