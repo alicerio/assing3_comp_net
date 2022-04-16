@@ -16,7 +16,22 @@ class Firewall (object):
     # This binds our PacketIn event listener
     connection.addListeners(self)
 
-    #add switch rules here
+    # Switch Rules:
+    # IPv4 icmp
+    connection.send(of.ofp_flow_mod(action=of.ofp_action_output(port=of.OFPP_FLOOD),
+					priority=2, match=of.ofp_match(dl_type=0x0800, nw_proto=1)))
+    # Any arp
+    connection.send(of.ofp_flow_mod(action=of.ofp_action_output(port=of.OFPP_FLOOD),
+    		    			priority=1, match=of.ofp_match(dl_type=0x0806)))
+    # Drop other IPv4	    			
+    self.connection.send(of.ofp_flow_mod(action=of.ofp_action_output(port=of.OFPP_NONE),
+					priority=0, match=of.ofp_match(dl_type=0x0800)))
+    
+    # Drop non-arp IPv6				
+    self.connection.send(of.ofp_flow_mod(action=of.ofp_action_output(port=of.OFPP_NONE),
+					priority=0, match=of.ofp_match(dl_type=0x86dd)))
+					
+    
 
   def _handle_PacketIn (self, event):
     """
